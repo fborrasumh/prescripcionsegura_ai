@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrescripciónSegura·AI — Revisión de medicación y prescripción razonada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#F4F2EA; --panel:#FFFFFF; --ink:#14312F; --muted:#5E6B68;
+  --line:#E2DED0; --petrol:#0F4C47; --petrol-deep:#0A3532; --petrol-soft:#E4EEEC;
+  --amber:#C99000; --amber-soft:#FFF3D6; --green:#12796A; --green-soft:#DFF1ED;
+  --red:#D9573F; --red-deep:#B23B26; --red-soft:#FBE7E2;
+  --radius:14px; --shadow:0 1px 2px rgba(20,49,47,.05),0 8px 24px rgba(20,49,47,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 'Noto Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;letter-spacing:-.01em}
+code,.mono{font-family:'Noto Sans Mono',monospace}
+header{position:sticky;top:0;z-index:50;background:rgba(244,242,234,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar{max-width:1180px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px}
+.logo{font-family:'Space Grotesk';font-weight:700;font-size:19px;color:var(--petrol-deep)}
+.logo b{color:var(--amber)}
+.tag{font-family:'Noto Sans Mono';font-size:11.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:2px 10px}
+.fasepill{margin-left:auto;display:none;font-family:'Noto Sans Mono';font-size:12px;background:var(--petrol);color:#fff;border-radius:99px;padding:5px 14px}
+main{max-width:1180px;margin:22px auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media(max-width:940px){main{grid-template-columns:1fr}.col-side{order:2}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-h h3{margin:0;font-size:16px}
+.eyebrow{font-family:'Noto Sans Mono';font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--petrol);background:var(--petrol-soft);border-radius:6px;padding:3px 8px}
+.panel-b{padding:18px}
+.field{margin-bottom:14px}
+.lab{display:block;font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.inp{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;color:var(--ink);background:#FCFBF7;outline:none}
+.inp:focus{border-color:var(--petrol);box-shadow:0 0 0 3px rgba(15,76,71,.12)}
+textarea.inp{min-height:64px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row4{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:14px}
+@media(max-width:640px){.row2,.row3,.row4{grid-template-columns:1fr}}
+.hint{font-size:12px;color:var(--muted);margin-top:5px}
+.btn{border:none;border-radius:10px;padding:10px 16px;font:600 14px 'Noto Sans';cursor:pointer;transition:filter .15s,transform .05s}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--petrol);color:#fff}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-amber{background:var(--amber);color:#fff}
+.btn-ghost{background:var(--petrol-soft);color:var(--petrol)}
+.btn-line{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn-block{width:100%}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.banner{display:none;border-radius:10px;padding:10px 14px;font-size:13.5px;margin-bottom:14px}
+.banner.err{display:block;background:var(--red-soft);color:var(--red-deep)}
+.adv{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+.adv summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600}
+.notice{background:var(--amber-soft);border:1px solid #EFD9A0;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#6E5200;margin-bottom:14px}
+.prog{font-family:'Noto Sans Mono';font-size:12.5px;color:var(--petrol);background:var(--petrol-soft);border-radius:8px;padding:8px 12px}
+.foot{max-width:1180px;margin:10px auto 40px;padding:0 20px;font-size:12px;color:var(--muted)}
+.hidden{display:none!important}
+.kv{font-size:13.5px;margin:0 0 8px}
+.kv b{color:var(--petrol-deep)}
+/* ficha */
+.ficha{background:#FAF8F1;border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13.5px;margin-bottom:14px}
+.calcbox{background:var(--petrol-soft);border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:14px}
+.calcbox .mono{font-size:13px}
+table.meds{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px}
+table.meds th{font-family:'Noto Sans Mono';font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.meds td{padding:7px 8px;border-bottom:1px solid #F0EDE2;vertical-align:top}
+/* detección */
+.hallazgo{display:flex;gap:8px;align-items:flex-start;margin-bottom:10px}
+.hallazgo textarea{flex:1;min-height:44px}
+.hallazgo .rm{border:none;background:var(--red-soft);color:var(--red-deep);border-radius:8px;width:34px;height:34px;font-weight:700;cursor:pointer;flex:none;margin-top:4px}
+.matriz{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:640px){.matriz{grid-template-columns:1fr}}
+.mbox{border-radius:12px;padding:12px;text-align:center}
+.mbox .mn{font-family:'Space Grotesk';font-weight:700;font-size:28px}
+.mbox .mt{font-size:11.5px}
+.mbox.ok{background:var(--green-soft);color:var(--green)}
+.mbox.miss{background:var(--red-soft);color:var(--red-deep)}
+.mbox.fa{background:var(--amber-soft);color:#6E5200}
+.errline{border:1px solid var(--line);border-left-width:5px;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13.5px}
+.errline.ok{border-left-color:var(--green)}
+.errline.miss{border-left-color:var(--red-deep)}
+.errline.fa{border-left-color:var(--amber)}
+.errline .et{font-weight:700}
+.errline .badge{float:right;font-family:'Noto Sans Mono';font-size:10.5px;border-radius:6px;padding:2px 8px}
+.errline.ok .badge{background:var(--green-soft);color:var(--green)}
+.errline.miss .badge{background:var(--red-soft);color:var(--red-deep)}
+.errline.fa .badge{background:var(--amber-soft);color:#6E5200}
+.grav{font-family:'Noto Sans Mono';font-size:10.5px;color:var(--muted)}
+/* rx checks */
+.rxcheck{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:640px){.rxcheck{grid-template-columns:1fr 1fr}}
+.rc{border-radius:12px;padding:10px;text-align:center;font-size:12px}
+.rc .rn{font-family:'Space Grotesk';font-weight:700;font-size:18px;display:block}
+.rc.ok{background:var(--green-soft);color:var(--green)}
+.rc.bad{background:var(--red-soft);color:var(--red-deep)}
+/* evaluación */
+.score{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.score .n{font-family:'Space Grotesk';font-weight:700;font-size:46px;color:var(--petrol-deep)}
+.score .d{font-size:13px;color:var(--muted)}
+.fb{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px}
+.fb h4{margin:0 0 6px;font-size:13px;display:flex;justify-content:space-between;gap:10px}
+.fb .pt{font-family:'Noto Sans Mono';color:var(--petrol)}
+.refbox{background:var(--petrol-soft);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px}
+.refbox h4{margin:0 0 6px;font-size:13px;color:var(--petrol-deep)}
+.side-list{list-style:none;margin:0;padding:0}
+.side-list li{padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.side-list li:last-child{border-bottom:none}
+.side-list .dt{font-family:'Noto Sans Mono';font-size:10.5px;color:var(--muted);display:block}
+.linklike{background:none;border:none;color:var(--petrol);font:600 13.5px 'Noto Sans';cursor:pointer;padding:0;text-align:left}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">
+      <span class="logo">PrescripciónSegura·<b>AI</b></span>
+      <span class="tag">revisión de medicación · prescripción razonada</span>
+    </div>
+    <span class="fasepill" id="fasePill"></span>
+  </div>
+</header>
+
+<main>
+  <div class="col-main">
+
+    <!-- ═══ Nuevo caso ═══ -->
+    <section class="panel" id="newPanel">
+      <div class="panel-h"><span class="eyebrow">Nuevo</span><h3>Crea un caso de prescripción</h3></div>
+      <div class="panel-b">
+        <div class="notice">Herramienta <b>formativa y de simulación</b>. El paciente, su medicación y los rangos de dosis del caso son ficticios y generados por IA con fines docentes. <b>No usar como fuente de dosificación real</b>: para la práctica clínica, consulta siempre la ficha técnica y las guías vigentes.</div>
+        <div id="banner" class="banner"></div>
+        <div class="row3">
+          <div class="field">
+            <label class="lab">Titulación</label>
+            <select class="inp" id="titu">
+              <option>Medicina</option><option>Farmacia</option><option>Enfermería</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="lab">Escenario</label>
+            <input class="inp" id="esc" list="escList" placeholder="Ej.: anciano polimedicado">
+            <datalist id="escList">
+              <option value="Anciano polimedicado (criterios STOPP/START)"></option>
+              <option value="Insuficiencia renal crónica"></option>
+              <option value="Anticoagulación e interacciones"></option>
+              <option value="Antibioterapia y ajuste renal"></option>
+              <option value="Dolor crónico y opioides"></option>
+              <option value="Insuficiencia cardiaca descompensada"></option>
+              <option value="Paciente hepatópata"></option>
+              <option value="Embarazo y lactancia"></option>
+            </datalist>
+            <div class="hint">Escribe libremente, elige una sugerencia o déjalo en blanco (sorpresa).</div>
+          </div>
+          <div class="field">
+            <label class="lab">Dificultad</label>
+            <select class="inp" id="dif">
+              <option value="1">Básica (3-4 problemas evidentes)</option>
+              <option value="2" selected>Media (4-6 problemas, alguno sutil)</option>
+              <option value="3">Alta (5-7 problemas sutiles + señuelos)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lab">Indicaciones opcionales</label>
+          <input class="inp" id="extra" placeholder="Ej.: residencia sociosanitaria; paciente con alergia a penicilinas…">
+        </div>
+        <button class="btn btn-primary btn-block" id="createBtn">Crear caso</button>
+        <div id="createProg" class="prog" style="margin-top:12px;display:none"></div>
+
+        <details class="adv">
+          <summary>Ajustes avanzados (API)</summary>
+          <div class="row2" style="margin-top:12px">
+            <div class="field">
+              <label class="lab">OpenAI API Key</label>
+              <input class="inp" id="apiKey" type="password" placeholder="sk-…" autocomplete="off">
+              <div class="hint">Se guarda solo en tu navegador. Compartida entre las apps del portfolio.</div>
+            </div>
+            <div class="field">
+              <label class="lab">Modelo</label>
+              <select class="inp" id="model">
+                <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
+                <option value="gpt-4o">gpt-4o</option>
+                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+              </select>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ═══ Fase 1 · revisión ═══ -->
+    <section class="panel hidden" id="casePanel">
+      <div class="panel-h"><span class="eyebrow">Fase 1 · Revisión</span><h3 id="caseTitle">El paciente</h3></div>
+      <div class="panel-b">
+        <div class="ficha" id="ficha"></div>
+        <div class="calcbox" id="calcbox"></div>
+        <span class="lab">Tratamiento actual</span>
+        <table class="meds" id="medsTable"></table>
+
+        <h4 style="margin:14px 0 6px">Problemas de la medicación que detectas</h4>
+        <p class="hint" style="margin:0 0 10px">Añade cada problema (interacción, duplicidad, dosis no ajustada, criterio STOPP, alergia…) indicando qué fármaco(s) afecta y <b>qué harías</b> (suspender, ajustar, sustituir, monitorizar). Un solo envío.</p>
+        <div id="hallazgos"></div>
+        <div class="toolbar" style="margin-top:6px">
+          <button class="btn btn-ghost" id="addHall">+ Añadir problema</button>
+          <button class="btn btn-primary" id="sendDet">Cerrar revisión y ver resultado</button>
+        </div>
+        <div id="detProg" class="prog" style="margin-top:12px;display:none"></div>
+      </div>
+    </section>
+
+    <!-- ═══ Resultado de revisión ═══ -->
+    <section class="panel hidden" id="detPanel">
+      <div class="panel-h"><span class="eyebrow">Revisión</span><h3>Resultado de la revisión</h3></div>
+      <div class="panel-b">
+        <div class="matriz" id="matriz"></div>
+        <p class="kv" id="detNotaTxt"></p>
+        <div id="detList"></div>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="toRx">Continuar a la nueva prescripción</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ Fase 2 · prescripción ═══ -->
+    <section class="panel hidden" id="rxPanel">
+      <div class="panel-h"><span class="eyebrow">Fase 2 · Prescripción</span><h3>Nueva prescripción</h3></div>
+      <div class="panel-b">
+        <div class="ficha" id="rxIndicacion"></div>
+        <div class="row4">
+          <div class="field">
+            <label class="lab">Fármaco (principio activo)</label>
+            <input class="inp" id="rxFarmaco" placeholder="Ej.: amoxicilina-clavulánico">
+          </div>
+          <div class="field">
+            <label class="lab">Dosis</label>
+            <div style="display:flex;gap:6px">
+              <input class="inp" id="rxDosis" type="number" min="0" step="any" placeholder="500">
+              <select class="inp" id="rxUnidad" style="width:90px">
+                <option>mg</option><option>g</option><option>mcg</option><option>UI</option><option>ml</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label class="lab">Frecuencia</label>
+            <select class="inp" id="rxFrec">
+              <option>c/4 h</option><option>c/6 h</option><option>c/8 h</option>
+              <option selected>c/12 h</option><option>c/24 h</option>
+              <option>c/48 h</option><option>dosis única</option><option>semanal</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="lab">Vía</label>
+            <select class="inp" id="rxVia">
+              <option>oral</option><option>iv</option><option>im</option><option>sc</option>
+              <option>tópica</option><option>inhalada</option><option>rectal</option>
+            </select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label class="lab">Duración</label>
+            <input class="inp" id="rxDur" placeholder="Ej.: 7 días">
+          </div>
+          <div class="field">
+            <label class="lab">Justificación de tu elección</label>
+            <input class="inp" id="rxJust" placeholder="Por qué este fármaco y esta pauta en este paciente…">
+          </div>
+        </div>
+        <div class="field">
+          <label class="lab">Plan de seguimiento y monitorización</label>
+          <textarea class="inp" id="rxSeg" placeholder="Qué parámetros vigilar (función renal, iones, INR…), cuándo reevaluar, señales de alarma para el paciente…"></textarea>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="evalBtn">Firmar prescripción y evaluar</button>
+        </div>
+        <div id="evalProg" class="prog" style="margin-top:12px;display:none"></div>
+      </div>
+    </section>
+
+    <!-- ═══ Evaluación ═══ -->
+    <section class="panel hidden" id="fbPanel">
+      <div class="panel-h"><span class="eyebrow">Evaluación</span><h3>Informe del caso</h3></div>
+      <div class="panel-b">
+        <div class="score"><span class="n" id="fbNota">—</span><span class="d">/ 10<br><span id="fbResumen"></span></span></div>
+        <div class="rxcheck" id="rxCheck"></div>
+        <div id="fbCards"></div>
+        <div class="refbox" id="fbRef"></div>
+        <div id="fbPlan" class="fb"></div>
+        <div class="toolbar">
+          <button class="btn btn-ghost" id="dlWord">⬇ Informe (Word)</button>
+          <button class="btn btn-line" id="dlPdf">⬇ Informe (PDF)</button>
+          <button class="btn btn-primary" id="againBtn">Nuevo caso</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-side">
+    <div class="panel">
+      <div class="panel-h"><span class="eyebrow">Guía</span><h3>Cómo funciona</h3></div>
+      <div class="panel-b" style="font-size:13.5px;color:var(--muted)">
+        <p style="margin:0 0 10px">Un paciente polimedicado con <b style="color:var(--ink)">problemas incrustados en su tratamiento</b>: interacciones, duplicidades, criterios STOPP, dosis sin ajustar a la función renal… Tu primera tarea es la revisión.</p>
+        <p style="margin:0 0 10px">El <b style="color:var(--ink)">aclaramiento de creatinina (Cockcroft-Gault) se calcula en tu navegador</b>, igual que la nota de detección (ponderada por gravedad, con penalización por falsas alarmas) y la validación de <b style="color:var(--ink)">dosis, frecuencia y vía</b> de tu nueva prescripción.</p>
+        <p style="margin:0">Nota global: 40 % revisión + 35 % prescripción + 25 % seguimiento y justificación. Exporta el informe en Word o PDF.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><span class="eyebrow">Historial</span><h3>Mis casos</h3></div>
+      <div class="panel-b">
+        <ul class="side-list" id="sesList"><li style="color:var(--muted)">Aún no hay casos.</li></ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="foot">PrescripciónSegura·AI — farmacología clínica del portfolio · <code>vanilla HTML/JS · OpenAI · docx.js · jsPDF · IndexedDB</code></div>
+
+<script>
+/* ═══════════════════════════════ KERNEL ═══════════════════════════════ */
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+const el=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
+const APP={id:'prescripcionsegura',version:1};
+const K_KEY='ia_openai_key';
+const K_CFG='ps_cfg_v1';
+
+const banner=(msg)=>{const b=$('#banner');b.className='banner err';b.textContent=msg;b.style.display='block';window.scrollTo({top:0,behavior:'smooth'});};
+const clearBanner=()=>{$('#banner').style.display='none';};
+
+function getKey(){return ($('#apiKey').value||'').trim()||localStorage.getItem(K_KEY)||'';}
+function saveCfg(){
+  const key=($('#apiKey').value||'').trim();
+  if(key)localStorage.setItem(K_KEY,key);
+  localStorage.setItem(K_CFG,JSON.stringify({model:$('#model').value}));
+}
+(function loadCfg(){
+  const k=localStorage.getItem(K_KEY);if(k)$('#apiKey').value=k;
+  try{const c=JSON.parse(localStorage.getItem(K_CFG)||'{}');if(c.model)$('#model').value=c.model;}catch(e){}
+})();
+
+async function openai(messages,{json=true,temp=0.7,model=null,max=2000}={}){
+  const key=getKey();
+  if(!key)throw new Error('Falta la API Key. Ábrela en «Ajustes avanzados» y pégala (empieza por sk-…).');
+  saveCfg();
+  const body={model:model||$('#model').value,temperature:temp,max_tokens:max,messages};
+  if(json)body.response_format={type:'json_object'};
+  const r=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify(body)
+  });
+  if(r.status===401)throw new Error('API Key no válida (401). Revísala en «Ajustes avanzados».');
+  if(!r.ok){const t=await r.text();throw new Error('Error de la API ('+r.status+'): '+t.slice(0,180));}
+  const d=await r.json();
+  const txt=(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||'';
+  if(!json)return txt;
+  try{return JSON.parse(txt.replace(/```json|```/g,'').trim());}
+  catch(e){throw new Error('La IA no devolvió JSON válido. Vuelve a intentarlo.');}
+}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
+function r1(x){return Math.round(x*10)/10;}
+
+/* ═══════════════════════════════ IndexedDB ═══════════════════════════════ */
+let db=null;
+(function initDB(){
+  const req=indexedDB.open('ps_ai_db',1);
+  req.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('casos'))d.createObjectStore('casos',{keyPath:'id'});};
+  req.onsuccess=e=>{db=e.target.result;renderList();};
+})();
+function dbPut(p){if(!db)return;db.transaction('casos','readwrite').objectStore('casos').put(p);}
+function dbDel(id){if(!db)return;db.transaction('casos','readwrite').objectStore('casos').delete(id);renderList();}
+function dbAll(cb){if(!db)return cb([]);const out=[];const c=db.transaction('casos').objectStore('casos').openCursor();
+  c.onsuccess=e=>{const cur=e.target.result;if(cur){out.push(cur.value);cur.continue();}else cb(out.sort((a,b)=>b.ts-a.ts));};}
+
+function renderList(){
+  dbAll(list=>{
+    const ul=$('#sesList');ul.innerHTML='';
+    if(!list.length){const li=el('li');li.style.color='var(--muted)';li.textContent='Aún no hay casos.';ul.appendChild(li);return;}
+    list.forEach(p=>{
+      const li=el('li');
+      const btn=el('button','linklike');
+      btn.textContent=(p.caso.escenario||'Caso')+' · '+(p.caso.nombre||'');
+      btn.onclick=()=>{if(p.eval){C=p;det=p.det;rxRes=p.rxRes;showReport(p.eval,true);}};
+      const dt=el('span','dt');
+      dt.textContent=(p.eval?('Nota '+p.eval.nota_global+'/10'):'sin evaluar')+' · '+new Date(p.ts).toLocaleDateString('es-ES');
+      const del=el('button','linklike');del.textContent='✕';del.title='Eliminar';del.style.color='var(--red-deep)';del.style.float='right';
+      del.onclick=ev=>{ev.stopPropagation();if(confirm('¿Eliminar este caso?'))dbDel(p.id);};
+      li.appendChild(del);li.appendChild(btn);li.appendChild(dt);ul.appendChild(li);
+    });
+  });
+}
+
+/* ═══════════════════════════════ Estado ═══════════════════════════════ */
+let C=null;      // {id, ts, titulacion, caso, det, rx, rxRes, eval}
+let det=null;    // resultado de la revisión
+let rxRes=null;  // validación determinista de la prescripción
+let crcl=null;   // aclaramiento calculado
+
+/* ═══════════════════════════════ Cockcroft-Gault (client-side) ═══════════════════════════════
+   CrCl (ml/min) = ((140 − edad) × peso) / (72 × Cr) × 0,85 si mujer */
+function cockcroftGault(edad,peso,cr,sexo){
+  if(!edad||!peso||!cr)return null;
+  let v=((140-edad)*peso)/(72*cr);
+  if(sexo==='M')v*=0.85;
+  return Math.round(v);
+}
+function bandaRenal(v){
+  if(v==null)return '—';
+  if(v>=90)return 'función renal normal (≥90)';
+  if(v>=60)return 'descenso leve (60-89)';
+  if(v>=30)return 'insuficiencia moderada (30-59): revisar ajustes';
+  if(v>=15)return 'insuficiencia grave (15-29): ajuste obligado';
+  return 'fallo renal (<15)';
+}
+
+/* ═══════════════════════════════ Agente 1 · generador del caso ═══════════════════════════════ */
+const GEN_SYS=`Eres diseñador de casos de FARMACOLOGÍA CLÍNICA y prescripción prudente para simulación docente en universidades españolas (Medicina, Farmacia, Enfermería). Generas un paciente polimedicado cuyo tratamiento actual contiene problemas de medicación reales y detectables, y una nueva necesidad clínica que exige prescribir. Conoces los criterios STOPP/START, las interacciones clásicas y el ajuste por función renal. Devuelves SOLO JSON válido:
+{
+ "escenario":"string breve",
+ "nombre":"string","edad":number,"sexo":"H|M","peso_kg":number,
+ "contexto":"string (dónde está el paciente y su situación clínica en 2-3 frases)",
+ "antecedentes":"string",
+ "alergias":["strings o lista vacía"],
+ "analitica":{"creatinina":number (mg/dl),"potasio":number,"sodio":number,"otros":"string opcional con más datos relevantes (INR, GOT/GPT, HbA1c…)"},
+ "medicacion_actual":[{"farmaco":"string","dosis":"string (p.ej. '50 mg')","frecuencia":"string","via":"string","desde":"string"}],
+ "problemas":[{"id":"p1","titulo":"string corto","descripcion":"string (qué fármacos implica y por qué)","tipo":"interaccion|duplicidad|stopp|dosis_renal|alergia|indicacion|monitorizacion","gravedad":1|2|3,"accion_correcta":"string (suspender/ajustar/sustituir/monitorizar y cómo)","explicacion":"string docente"}],
+ "senuelos":[{"titulo":"string (algo que parece problema pero es correcto)","aclaracion":"string"}],
+ "tarea":{
+   "indicacion":"string (la nueva necesidad clínica que obliga a prescribir, p.ej. 'ITU no complicada; prescribe el antibiótico')",
+   "opciones_validas":[{"farmaco":"string (principio activo)","sinonimos":["nombres comerciales o variantes"],"dosis_min_mg":number,"dosis_max_mg":number,"frecuencias":["c/12 h","c/24 h"],"vias":["oral"],"nota":"string (por qué es válida y qué ajuste incorpora)"}],
+   "errores_tipicos":[{"farmaco":"string","sinonimos":["..."],"motivo":"string (alergia, interacción con su tratamiento, sin ajuste renal, contraindicación)"}]
+ },
+ "seguimiento_ref":"string (qué monitorizar, cuándo reevaluar, señales de alarma)",
+ "notas_ref":"string (criterios STOPP/START u otras referencias aplicadas en el caso)"
+}
+REGLAS CRÍTICAS:
+- COHERENCIA RENAL: calcula mentalmente el Cockcroft-Gault del paciente con la edad, peso, sexo y creatinina que TÚ eliges, y haz que (a) al menos un problema dependa de esa función renal si procede, y (b) las dosis_min_mg/dosis_max_mg de las opciones_validas estén YA ajustadas a ese aclaramiento.
+- Cada problema debe ser visible en los datos dados (medicación + analítica + alergias): nada indetectable.
+- Al menos un problema de gravedad 3. Las dosis en mg (si el fármaco se dosifica en otra unidad, exprésalo en mg equivalentes y dilo en la nota).
+- opciones_validas: TODAS las alternativas razonables de 1ª y 2ª línea (2-4), para no penalizar elecciones correctas distintas.
+- errores_tipicos: 2-4 fármacos que un alumno podría elegir y serían inadecuados EN ESTE paciente.
+- Todo en español, práctica del sistema sanitario español.`;
+
+async function createCase(){
+  clearBanner();
+  const titu=$('#titu').value, escenario=$('#esc').value.trim(), dif=$('#dif').value, extra=$('#extra').value.trim();
+  const prog=$('#createProg');prog.style.display='block';prog.textContent='Generando paciente polimedicado…';
+  $('#createBtn').disabled=true;
+  try{
+    const difTxt={1:'básica: 3-4 problemas evidentes, 1 señuelo',2:'media: 4-6 problemas, alguno sutil, 1-2 señuelos',3:'alta: 5-7 problemas sutiles, 2 señuelos'}[dif];
+    const u=`Titulación: ${titu}. Escenario: ${escenario||'(elige tú uno frecuente y docente)'}. Dificultad ${difTxt}. ${extra?'Indicaciones: '+extra:''}`;
+    const j=await openai([{role:'system',content:GEN_SYS},{role:'user',content:u}],{temp:0.8,max:3400});
+    if(!j.medicacion_actual||!j.problemas||!j.tarea||!j.tarea.opciones_validas)throw new Error('El caso generado está incompleto. Vuelve a intentarlo.');
+    C={id:'ps_'+Date.now(),ts:Date.now(),titulacion:titu,caso:j,det:null,rx:null,rxRes:null,eval:null};
+    openCase();
+  }catch(e){banner(e.message);}
+  finally{prog.style.display='none';$('#createBtn').disabled=false;}
+}
+
+/* ═══════════════════════════════ Fase 1 · ficha + revisión ═══════════════════════════════ */
+function openCase(){
+  const c=C.caso;
+  $('#newPanel').classList.add('hidden');
+  $('#casePanel').classList.remove('hidden');
+  $('#fasePill').style.display='inline-block';$('#fasePill').textContent='Fase 1 · Revisión';
+  $('#caseTitle').textContent=c.escenario;
+  const a=c.analitica||{};
+  $('#ficha').innerHTML='<b>'+esc(c.nombre)+'</b>, '+esc(c.edad)+' años, '+(c.sexo==='M'?'mujer':'hombre')+', '+esc(c.peso_kg)+' kg.<br>'+
+    esc(c.contexto)+'<br><br><b>Antecedentes:</b> '+esc(c.antecedentes)+
+    '<br><b>Alergias:</b> '+((c.alergias&&c.alergias.length)?esc(c.alergias.join(', ')):'no conocidas')+
+    '<br><b>Analítica:</b> creatinina '+esc(a.creatinina)+' mg/dl · K⁺ '+esc(a.potasio)+' · Na⁺ '+esc(a.sodio)+(a.otros?' · '+esc(a.otros):'');
+  crcl=cockcroftGault(c.edad,c.peso_kg,a.creatinina,c.sexo);
+  $('#calcbox').innerHTML='<b>Aclaramiento de creatinina (Cockcroft-Gault, calculado en tu navegador):</b> '+
+    '<span class="mono">CrCl = ((140 − '+esc(c.edad)+') × '+esc(c.peso_kg)+') / (72 × '+esc(a.creatinina)+')'+(c.sexo==='M'?' × 0,85':'')+' = <b>'+crcl+' ml/min</b></span> — '+bandaRenal(crcl);
+  const tb=$('#medsTable');
+  tb.innerHTML='<tr><th>Fármaco</th><th>Dosis</th><th>Frecuencia</th><th>Vía</th><th>Desde</th></tr>'+
+    c.medicacion_actual.map(m=>'<tr><td><b>'+esc(m.farmaco)+'</b></td><td class="mono">'+esc(m.dosis)+'</td><td class="mono">'+esc(m.frecuencia)+'</td><td>'+esc(m.via)+'</td><td>'+esc(m.desde)+'</td></tr>').join('');
+  $('#hallazgos').innerHTML='';addHallazgo();
+}
+function addHallazgo(){
+  const box=$('#hallazgos');
+  const row=el('div','hallazgo');
+  const ta=el('textarea','inp');ta.placeholder='Problema, fármaco(s) implicado(s) y qué harías…';
+  const rm=el('button','rm');rm.textContent='✕';rm.title='Quitar';
+  rm.onclick=()=>row.remove();
+  row.appendChild(ta);row.appendChild(rm);box.appendChild(row);ta.focus();
+}
+$('#addHall').onclick=addHallazgo;
+
+/* ═══ Agente 2 · router de revisión (solo empareja) ═══ */
+const MAP_SYS=`Eres el corrector de una actividad de revisión de medicación. Recibes: (1) la lista CERRADA de problemas reales del tratamiento, (2) los señuelos (elementos correctos que parecen problema), (3) los hallazgos escritos por el alumno. Tu única tarea es el EMPAREJAMIENTO: para cada hallazgo, decide si corresponde a un problema real (¿a cuál?), a un señuelo, o a nada. NO puntúas. Un problema real solo puede emparejarse con UN hallazgo. El emparejamiento exige que el alumno identifique el problema de fondo (fármaco y naturaleza del problema), aunque con otras palabras. Devuelves SOLO JSON:
+{"emparejamientos":[{"hallazgo":índice,"problema_id":"p1"}],"senuelos":[{"hallazgo":índice,"senuelo":índice}],"sin_correspondencia":[índices]}`;
+
+async function sendDeteccion(){
+  const textos=[...$$('#hallazgos textarea')].map(t=>t.value.trim()).filter(Boolean);
+  if(!textos.length){alert('Añade al menos un problema antes de cerrar la revisión.');return;}
+  if(!confirm('Vas a cerrar la revisión con '+textos.length+' problema(s). Solo hay un envío. ¿Continuar?'))return;
+  const prog=$('#detProg');prog.style.display='block';prog.textContent='Comparando tu revisión con los problemas del caso…';
+  $('#sendDet').disabled=true;
+  const c=C.caso;
+  try{
+    const ctx={
+      problemas:c.problemas.map(p=>({id:p.id,titulo:p.titulo,descripcion:p.descripcion})),
+      senuelos:(c.senuelos||[]).map((s,i)=>({i,titulo:s.titulo})),
+      hallazgos_alumno:textos.map((t,i)=>({i,texto:t}))
+    };
+    const j=await openai([{role:'system',content:MAP_SYS},{role:'user',content:JSON.stringify(ctx)}],{temp:0.1,max:800});
+    det=scoreDeteccion(textos,j);
+    C.det=det;
+    showDeteccion();
+  }catch(e){banner(e.message);}
+  finally{prog.style.display='none';$('#sendDet').disabled=false;}
+}
+$('#sendDet').onclick=sendDeteccion;
+
+/* ═══ Nota DETERMINISTA de la revisión ═══ */
+function scoreDeteccion(textos,map){
+  const c=C.caso;
+  const matched={};
+  (map.emparejamientos||[]).forEach(m=>{ if(!matched[m.problema_id]&&textos[m.hallazgo]!=null) matched[m.problema_id]=textos[m.hallazgo]; });
+  const aciertos=c.problemas.filter(p=>matched[p.id]).map(p=>({p,texto:matched[p.id]}));
+  const omitidos=c.problemas.filter(p=>!matched[p.id]);
+  const usados=new Set((map.emparejamientos||[]).map(m=>m.hallazgo).concat((map.senuelos||[]).map(s=>s.hallazgo)));
+  const falsos=textos.filter((t,i)=>!usados.has(i));
+  const senuelosCaidos=(map.senuelos||[]).map(s=>({texto:textos[s.hallazgo],senuelo:(c.senuelos||[])[s.senuelo]})).filter(x=>x.senuelo);
+  const gravTotal=c.problemas.reduce((a,p)=>a+(p.gravedad||1),0)||1;
+  const gravDet=aciertos.reduce((a,x)=>a+(x.p.gravedad||1),0);
+  const nFA=falsos.length+senuelosCaidos.length;
+  const nota=r1(clamp(10*gravDet/gravTotal - Math.min(2,0.5*nFA),0,10));
+  const sens=Math.round(100*aciertos.length/c.problemas.length);
+  const prec=textos.length?Math.round(100*aciertos.length/textos.length):0;
+  return {aciertos,omitidos,falsos,senuelosCaidos,sens,prec,nota,gravDet,gravTotal};
+}
+function showDeteccion(){
+  $('#casePanel').classList.add('hidden');
+  $('#detPanel').classList.remove('hidden');
+  $('#fasePill').textContent='Revisión · resultado';
+  $('#matriz').innerHTML=
+    '<div class="mbox ok"><div class="mn">'+det.aciertos.length+'</div><div class="mt">detectados (sensibilidad '+det.sens+' %)</div></div>'+
+    '<div class="mbox miss"><div class="mn">'+det.omitidos.length+'</div><div class="mt">no detectados</div></div>'+
+    '<div class="mbox fa"><div class="mn">'+(det.falsos.length+det.senuelosCaidos.length)+'</div><div class="mt">falsas alarmas (precisión '+det.prec+' %)</div></div>';
+  $('#detNotaTxt').innerHTML='Nota de revisión (determinista): <b>'+det.nota+'/10</b> — ponderada por gravedad ('+det.gravDet+'/'+det.gravTotal+'), con penalización por falsas alarmas.';
+  const list=$('#detList');list.innerHTML='';
+  det.aciertos.forEach(x=>{
+    const d=el('div','errline ok');
+    d.innerHTML='<span class="badge">DETECTADO</span><span class="et">'+esc(x.p.titulo)+'</span> <span class="grav">· gravedad '+x.p.gravedad+' · '+esc(x.p.tipo)+'</span><br><b>Acción correcta:</b> '+esc(x.p.accion_correcta)+'<br>'+esc(x.p.explicacion);
+    list.appendChild(d);
+  });
+  det.omitidos.forEach(p=>{
+    const d=el('div','errline miss');
+    d.innerHTML='<span class="badge">NO VISTO</span><span class="et">'+esc(p.titulo)+'</span> <span class="grav">· gravedad '+p.gravedad+' · '+esc(p.tipo)+'</span><br>'+esc(p.descripcion)+'<br><b>Acción correcta:</b> '+esc(p.accion_correcta)+'<br>'+esc(p.explicacion);
+    list.appendChild(d);
+  });
+  det.senuelosCaidos.forEach(x=>{
+    const d=el('div','errline fa');
+    d.innerHTML='<span class="badge">SEÑUELO</span><span class="et">'+esc(x.senuelo.titulo)+'</span><br>'+esc(x.senuelo.aclaracion);
+    list.appendChild(d);
+  });
+  det.falsos.forEach(t=>{
+    const d=el('div','errline fa');
+    d.innerHTML='<span class="badge">FALSA ALARMA</span>«'+esc(t)+'» no corresponde a ningún problema del caso.';
+    list.appendChild(d);
+  });
+}
+$('#toRx').onclick=()=>{
+  $('#detPanel').classList.add('hidden');
+  $('#rxPanel').classList.remove('hidden');
+  $('#fasePill').textContent='Fase 2 · Prescripción';
+  $('#rxIndicacion').innerHTML='<b>Nueva necesidad clínica:</b> '+esc(C.caso.tarea.indicacion)+
+    '<br><span class="hint" style="margin:0">Recuerda: CrCl calculado '+crcl+' ml/min ('+bandaRenal(crcl)+'), alergias: '+((C.caso.alergias&&C.caso.alergias.length)?esc(C.caso.alergias.join(', ')):'no conocidas')+'.</span>';
+  window.scrollTo({top:0,behavior:'smooth'});
+};
+
+/* ═══════════════════════════════ Fase 2 · validación de la prescripción ═══════════════════════════════ */
+/* Agente 3 · router de fármaco: SOLO identifica a qué opción/error corresponde el texto */
+const RX_SYS=`Eres el árbitro de una simulación de prescripción. Recibes el fármaco escrito por el alumno y dos listas cerradas del caso: opciones válidas y errores típicos (cada una con sinónimos). Decides a cuál corresponde el fármaco del alumno (mismo principio activo o nombre comercial equivalente). NO valoras dosis ni idoneidad. Devuelves SOLO JSON:
+{"tipo":"valida|tipico|desconocido","idx":number|null}`;
+
+const UCONV={mg:1,g:1000,mcg:0.001};
+function scoreRx(rx,routerRes){
+  const t=C.caso.tarea;
+  const checks={farmaco:{ok:false,txt:''},dosis:{ok:false,txt:''},frec:{ok:false,txt:''},via:{ok:false,txt:''}};
+  let puntos=0,motivo='';
+  if(routerRes.tipo==='tipico'){
+    const err=t.errores_tipicos[routerRes.idx]||{};
+    motivo=err.motivo||'fármaco inadecuado en este paciente';
+    checks.farmaco.txt='Inadecuado: '+motivo;
+    return {nota:0,checks,motivo,opcion:null};
+  }
+  if(routerRes.tipo!=='valida'||t.opciones_validas[routerRes.idx]==null){
+    checks.farmaco.txt='No está entre las opciones esperadas del caso';
+    return {nota:0,checks,motivo:'fármaco no reconocido entre las opciones del caso',opcion:null};
+  }
+  const op=t.opciones_validas[routerRes.idx];
+  checks.farmaco.ok=true;checks.farmaco.txt=op.farmaco;puntos+=4;
+  // dosis: conversión de unidades a mg y comprobación de banda
+  const f=UCONV[rx.unidad];
+  if(f!=null&&isFinite(rx.dosis)&&rx.dosis>0){
+    const mg=rx.dosis*f;
+    if(mg>=op.dosis_min_mg&&mg<=op.dosis_max_mg){checks.dosis.ok=true;checks.dosis.txt=mg+' mg ∈ ['+op.dosis_min_mg+'–'+op.dosis_max_mg+']';puntos+=3;}
+    else checks.dosis.txt=mg+' mg fuera de banda ['+op.dosis_min_mg+'–'+op.dosis_max_mg+' mg]';
+  }else checks.dosis.txt='Unidad no comparable o dosis no válida (banda en mg: '+op.dosis_min_mg+'–'+op.dosis_max_mg+')';
+  // frecuencia
+  if((op.frecuencias||[]).includes(rx.frec)){checks.frec.ok=true;checks.frec.txt=rx.frec;puntos+=2;}
+  else checks.frec.txt=rx.frec+' — válidas: '+(op.frecuencias||[]).join(', ');
+  // vía
+  if((op.vias||[]).includes(rx.via)){checks.via.ok=true;checks.via.txt=rx.via;puntos+=1;}
+  else checks.via.txt=rx.via+' — válidas: '+(op.vias||[]).join(', ');
+  return {nota:puntos,checks,motivo:'',opcion:op};
+}
+
+/* ═══ Agente 4 · evaluador de seguimiento y justificación ═══ */
+const EVAL_SYS=`Eres profesor de farmacología clínica en una universidad española. Evalúas SOLO dos cosas del alumno: (1) su justificación de la elección y (2) su plan de seguimiento/monitorización, comparándolos con la referencia del caso. La revisión de la medicación y la validez de fármaco/dosis/frecuencia/vía YA están puntuadas de forma determinista: no las puntúes, aunque puedes referirte a ellas en el texto. Tono formativo. Devuelves SOLO JSON:
+{
+ "seguimiento":{"puntos":number 0-10,"texto":"valoración del plan de monitorización frente a la referencia: qué parámetros y plazos acertó, cuáles faltan"},
+ "justificacion":{"puntos":number 0-10,"texto":"calidad del razonamiento: ¿menciona la función renal, las alergias, las interacciones con su tratamiento?"},
+ "resumen":"string (1-2 frases sobre el caso completo)",
+ "plan_mejora":"string (2-4 recomendaciones concretas)"
+}`;
+
+async function runEval(){
+  const c=C.caso;
+  const rx={
+    farmaco:$('#rxFarmaco').value.trim(),
+    dosis:Number($('#rxDosis').value),
+    unidad:$('#rxUnidad').value,
+    frec:$('#rxFrec').value,
+    via:$('#rxVia').value,
+    dur:$('#rxDur').value.trim(),
+    just:$('#rxJust').value.trim(),
+    seg:$('#rxSeg').value.trim()
+  };
+  if(!rx.farmaco){alert('Escribe el fármaco que prescribes.');return;}
+  const prog=$('#evalProg');prog.style.display='block';prog.textContent='Validando prescripción…';
+  $('#evalBtn').disabled=true;
+  try{
+    const ctx={
+      farmaco_alumno:rx.farmaco,
+      opciones_validas:c.tarea.opciones_validas.map((o,i)=>({i,farmaco:o.farmaco,sinonimos:o.sinonimos||[]})),
+      errores_tipicos:(c.tarea.errores_tipicos||[]).map((o,i)=>({i,farmaco:o.farmaco,sinonimos:o.sinonimos||[]}))
+    };
+    const router=await openai([{role:'system',content:RX_SYS},{role:'user',content:JSON.stringify(ctx)}],{temp:0.1,max:120});
+    rxRes=scoreRx(rx,router);
+    C.rx=rx;C.rxRes=rxRes;
+    prog.textContent='Evaluando seguimiento y justificación…';
+    const ctx2={
+      paciente:{edad:c.edad,sexo:c.sexo,crcl_calculado:crcl,alergias:c.alergias,antecedentes:c.antecedentes,medicacion_actual:c.medicacion_actual},
+      indicacion:c.tarea.indicacion,
+      prescripcion_del_alumno:rx,
+      validacion_deterministica:{nota:rxRes.nota,motivo:rxRes.motivo,checks:Object.fromEntries(Object.entries(rxRes.checks).map(([k,v])=>[k,v.ok]))},
+      problemas_omitidos_en_revision:det?det.omitidos.map(p=>p.titulo):[],
+      seguimiento_ref:c.seguimiento_ref,
+      notas_ref:c.notas_ref
+    };
+    const j=await openai([{role:'system',content:EVAL_SYS},{role:'user',content:JSON.stringify(ctx2)}],{temp:0.3,max:1400});
+    const gSeg=clamp((j.seguimiento&&j.seguimiento.puntos)||0,0,10);
+    const gJus=clamp((j.justificacion&&j.justificacion.puntos)||0,0,10);
+    // Nota global determinista en cliente: 40% revisión + 35% prescripción + 25% (seguimiento+justificación)
+    const nota_global=r1(clamp(0.4*det.nota + 0.35*rxRes.nota + 0.125*gSeg + 0.125*gJus,0,10));
+    C.eval={...j,nota_global,nota_revision:det.nota,nota_rx:rxRes.nota};
+    C.ts=Date.now();dbPut(C);renderList();
+    showReport(C.eval,false);
+  }catch(e){banner(e.message);}
+  finally{prog.style.display='none';$('#evalBtn').disabled=false;}
+}
+$('#evalBtn').onclick=runEval;
+
+function showReport(j,fromHistory){
+  ['newPanel','casePanel','detPanel','rxPanel'].forEach(id=>$('#'+id).classList.add('hidden'));
+  $('#fbPanel').classList.remove('hidden');
+  $('#fasePill').style.display='inline-block';$('#fasePill').textContent='Informe';
+  $('#fbNota').textContent=j.nota_global;
+  $('#fbResumen').textContent=j.resumen||'';
+  // checks de la prescripción
+  const rc=$('#rxCheck');rc.innerHTML='';
+  if(rxRes){
+    [['farmaco','Fármaco (4 pt)'],['dosis','Dosis (3 pt)'],['frec','Frecuencia (2 pt)'],['via','Vía (1 pt)']].forEach(([k,lab])=>{
+      const ch=rxRes.checks[k];
+      const d=el('div','rc '+(ch.ok?'ok':'bad'));
+      d.innerHTML='<span class="rn">'+(ch.ok?'✓':'✕')+'</span>'+lab+'<br><span class="mono" style="font-size:11px">'+esc(ch.txt)+'</span>';
+      rc.appendChild(d);
+    });
+  }
+  const cards=$('#fbCards');cards.innerHTML='';
+  const mk=(dim,pts,txt)=>{const d=el('div','fb');d.innerHTML='<h4>'+esc(dim)+'<span class="pt">'+esc(pts)+'</span></h4>'+esc(txt);cards.appendChild(d);};
+  mk('Revisión de la medicación (determinista · 40 %)',(det?det.nota:j.nota_revision)+'/10',
+    det?('Sensibilidad '+det.sens+' % · precisión '+det.prec+' % · '+det.aciertos.length+' detectados, '+det.omitidos.length+' omitidos, '+(det.falsos.length+det.senuelosCaidos.length)+' falsas alarmas.'):'Recuperado del historial.');
+  mk('Prescripción (determinista · 35 %)',(rxRes?rxRes.nota:j.nota_rx)+'/10',
+    rxRes&&rxRes.motivo?rxRes.motivo:'Validación de fármaco, dosis (convertida a mg contra la banda del caso), frecuencia y vía.');
+  if(j.justificacion)mk('Justificación (12,5 %)',j.justificacion.puntos+'/10',j.justificacion.texto);
+  if(j.seguimiento)mk('Plan de seguimiento (12,5 %)',j.seguimiento.puntos+'/10',j.seguimiento.texto);
+  const c=C.caso;
+  $('#fbRef').innerHTML='<h4>Referencia del caso</h4>'+
+    '<b>Opciones válidas:</b> '+esc(c.tarea.opciones_validas.map(o=>o.farmaco+' ('+o.dosis_min_mg+'–'+o.dosis_max_mg+' mg, '+(o.frecuencias||[]).join('/')+')').join(' · '))+
+    '<br><br><b>Seguimiento de referencia:</b> '+esc(c.seguimiento_ref)+
+    (c.notas_ref?'<br><br><b>Criterios aplicados:</b> '+esc(c.notas_ref):'');
+  $('#fbPlan').innerHTML='<h4>Plan de mejora</h4>'+esc(j.plan_mejora||'');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ═══════════════════════════════ Export ═══════════════════════════════ */
+function informeLineas(){
+  const c=C.caso,j=C.eval,rx=C.rx||{};const L=[];
+  L.push(['h1','PrescripciónSegura·AI — Informe del caso']);
+  L.push(['p',c.escenario+' · '+c.nombre+', '+c.edad+' años · Titulación: '+C.titulacion]);
+  L.push(['p','Nota global: '+j.nota_global+'/10 — '+(j.resumen||'')]);
+  L.push(['p','CrCl (Cockcroft-Gault): '+crcl+' ml/min — '+bandaRenal(crcl)]);
+  L.push(['h2','Revisión de la medicación — '+(det?det.nota:j.nota_revision)+'/10 (determinista)']);
+  if(det){
+    L.push(['p','Sensibilidad '+det.sens+' % · precisión '+det.prec+' %.']);
+    det.aciertos.forEach(x=>{L.push(['h3','[DETECTADO] '+x.p.titulo+' (gravedad '+x.p.gravedad+')']);L.push(['p','Acción: '+x.p.accion_correcta+' — '+x.p.explicacion]);});
+    det.omitidos.forEach(p=>{L.push(['h3','[NO VISTO] '+p.titulo+' (gravedad '+p.gravedad+')']);L.push(['p',p.descripcion+' · Acción: '+p.accion_correcta+' — '+p.explicacion]);});
+    det.senuelosCaidos.forEach(x=>{L.push(['h3','[SEÑUELO] '+x.senuelo.titulo]);L.push(['p',x.senuelo.aclaracion]);});
+    det.falsos.forEach(t=>{L.push(['p','[FALSA ALARMA] '+t]);});
+  }
+  L.push(['h2','Prescripción — '+(rxRes?rxRes.nota:j.nota_rx)+'/10 (determinista)']);
+  L.push(['p','Prescrito: '+(rx.farmaco||'—')+' '+(rx.dosis||'')+' '+(rx.unidad||'')+' '+(rx.frec||'')+' vía '+(rx.via||'')+' · '+(rx.dur||'')]);
+  if(rxRes)Object.entries(rxRes.checks).forEach(([k,v])=>{L.push(['p','['+(v.ok?'OK':'X')+'] '+k+': '+v.txt]);});
+  if(j.justificacion){L.push(['h2','Justificación — '+j.justificacion.puntos+'/10']);L.push(['p',j.justificacion.texto]);}
+  if(j.seguimiento){L.push(['h2','Plan de seguimiento — '+j.seguimiento.puntos+'/10']);L.push(['p',j.seguimiento.texto]);}
+  L.push(['h2','Referencia del caso']);
+  L.push(['p','Opciones válidas: '+c.tarea.opciones_validas.map(o=>o.farmaco+' ('+o.dosis_min_mg+'–'+o.dosis_max_mg+' mg)').join(' · ')]);
+  L.push(['p','Seguimiento: '+c.seguimiento_ref]);
+  L.push(['h2','Plan de mejora']);L.push(['p',j.plan_mejora||'']);
+  L.push(['p','Nota: caso ficticio generado con IA con fines docentes. No usar como fuente de dosificación real.']);
+  return L;
+}
+$('#dlWord').onclick=async()=>{
+  if(!C||!C.eval)return;
+  const {Document,Packer,Paragraph,HeadingLevel,TextRun}=docx;
+  const kids=informeLineas().map(([t,x])=>{
+    if(t==='h1')return new Paragraph({text:x,heading:HeadingLevel.TITLE});
+    if(t==='h2')return new Paragraph({text:x,heading:HeadingLevel.HEADING_1,spacing:{before:240}});
+    if(t==='h3')return new Paragraph({text:x,heading:HeadingLevel.HEADING_2,spacing:{before:160}});
+    return new Paragraph({children:[new TextRun({text:x,size:22})],spacing:{after:60}});
+  });
+  const doc=new Document({sections:[{children:kids}]});
+  const blob=await Packer.toBlob(doc);
+  dl(blob,'PrescripcionSeguraAI_'+(C.caso.nombre||'caso').replace(/\s+/g,'_')+'.docx');
+};
+$('#dlPdf').onclick=()=>{
+  if(!C||!C.eval)return;
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({unit:'mm',format:'a4'});
+  const W=pdf.internal.pageSize.getWidth()-28;let y=18;
+  informeLineas().forEach(([t,x])=>{
+    const size=t==='h1'?16:t==='h2'?13:t==='h3'?11.5:10;
+    pdf.setFont('helvetica',t==='p'?'normal':'bold');pdf.setFontSize(size);
+    const lines=pdf.splitTextToSize(x,W);
+    lines.forEach(ln=>{if(y>282){pdf.addPage();y=18;}pdf.text(ln,14,y);y+=size*0.5;});
+    y+=t==='p'?1.5:3;
+  });
+  pdf.save('PrescripcionSeguraAI_informe.pdf');
+};
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+
+/* ═══════════════════════════════ Eventos UI ═══════════════════════════════ */
+$('#createBtn').onclick=createCase;
+$('#againBtn').onclick=()=>{location.reload();};
+
+</script>
+</body>
+</html>
